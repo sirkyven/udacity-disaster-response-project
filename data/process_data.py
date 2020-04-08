@@ -1,17 +1,37 @@
 import sys
+import pandas as pd
+from sqlalchemy.engine import create_engine
 
 
 def load_data(messages_filepath, categories_filepath):
-    pass
-
+    df_messages = pd.read_csv(messages_filepath)
+    df_categories = pd.read_csv(categories_filepath)
+    #merging messages and categories on 'id' column
+    df = pd.merge(df_messages, df_categories, on='id')
+    return df
 
 def clean_data(df):
-    pass
+    #creating a category for each category value which are found by seperating them
+    categories = df['categories'].str.split(';', expand=True)
+    #creating category of columns
+    category_colnames = categories[:1].squeeze().apply(lambda x: x[:-2])
+    #replacing column names in the original dataframe
+    categories.columns = category_colnames
 
+    for column in categories:
+        # set each value to be the last character of the string
+        categories[column] = categories[column].apply(lambda x: x[-1])
+        # convert column from string to numeric
+        categories[column] = pd.to_numeric(categories[column], downcast="integer")
+
+    df.drop("categories", axis=1, inplace=True)
+    #remove duplicates after merging with the categories table
+    df = df.join(categories).drop_duplicates()
+    return df
 
 def save_data(df, database_filename):
-    pass  
-
+    engine = create_engine('sqlite:///' + database_filename)
+    df.to_sql('DisasterResponse', engine, index=False)  
 
 def main():
     if len(sys.argv) == 4:
